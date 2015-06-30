@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
-
+_ "github.com/kidoman/embd/host/rpi" // This loads the RPi driver
 	bw "github.com/immesys/bw2bind"
 	"github.com/kidoman/embd"
 )
@@ -45,19 +45,67 @@ var config struct {
 }
 
 func initHardware() {
-	embd.InitGPIO()
+	err := embd.InitGPIO()
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
 	relays = make([]embd.DigitalPin, 8)
-	relays[0], _ = embd.NewDigitalPin(7)
-	relays[1], _ = embd.NewDigitalPin(0)
-	relays[1], _ = embd.NewDigitalPin(1)
-	relays[2], _ = embd.NewDigitalPin(2)
-	relays[3], _ = embd.NewDigitalPin(3)
-	relays[4], _ = embd.NewDigitalPin(4)
-	relays[5], _ = embd.NewDigitalPin(5)
-	relays[6], _ = embd.NewDigitalPin(6)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[0], err = embd.NewDigitalPin(4)//7)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[1], err = embd.NewDigitalPin(17)//0)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[2], err = embd.NewDigitalPin(18)//1)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[3], err = embd.NewDigitalPin(27)//2)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[4], err = embd.NewDigitalPin(22)//3)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[5], err = embd.NewDigitalPin(23)//4)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[6], err = embd.NewDigitalPin(24)//5)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
+	relays[7], err = embd.NewDigitalPin(25)//6)
+	if err != nil {
+		fmt.Println("GPIO ERR:",err)
+		os.Exit(1)
+	}
 	for _, r := range relays {
-		r.SetDirection(embd.Out)
-		r.Write(embd.Low)
+		err = r.SetDirection(embd.Out)
+		if err != nil {
+			fmt.Println("GPIO ERR:",err)
+			os.Exit(1)
+		}
+		err = r.Write(embd.Low)
+		if err != nil {
+			fmt.Println("GPIO ERR:",err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -178,6 +226,8 @@ func main() {
 		}
 		go func() {
 			for m := range mc {
+				fmt.Println("GOT MESSAGE")
+				m.Dump()
 				po := m.GetOnePODF(bw.PODFBinaryActuation)
 				if po != nil {
 					if po.GetContents()[0] == 0 {
