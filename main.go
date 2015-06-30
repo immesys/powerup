@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-
+	"runtime"
 	"gopkg.in/yaml.v2"
 _ "github.com/kidoman/embd/host/rpi" // This loads the RPi driver
 	bw "github.com/immesys/bw2bind"
@@ -214,8 +214,10 @@ func main() {
 	PAC = rc.Hash
 	mergeMetadata()
 	initHardware()
-	for i := 0; i < 7; i++ {
+	for idx := 0; idx < 7; idx++ {
+		i := idx
 		tgt := config.PermissionBase + "/" + config.Plugs[i].Base + "/binary/ctl/state"
+		
 		mc, err := BWC.Subscribe(&bw.SubscribeParams{
 			URI:                tgt,
 			PrimaryAccessChain: PAC,
@@ -226,19 +228,22 @@ func main() {
 		}
 		go func() {
 			for m := range mc {
-				fmt.Println("GOT MESSAGE")
+				fmt.Println("GOT MESSAGE on", tgt)
 				m.Dump()
 				po := m.GetOnePODF(bw.PODFBinaryActuation)
 				if po != nil {
 					if po.GetContents()[0] == 0 {
 						fmt.Println("Would turn off:", i)
-						relays[i].Write(1)
+						relays[i].Write(0)
 					} else if po.GetContents()[0] == 1 {
 						fmt.Println("Would turn on:", i)
-						relays[i].Write(0)
+						relays[i].Write(1)
 					}
 				}
 			}
 		}()
+	}
+	for {
+		runtime.Gosched()
 	}
 }
