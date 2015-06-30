@@ -1,0 +1,42 @@
+#Set a variable for the metadata validity time
+{{$mtime := "2015-06-20T00:00:00 PDT"}}
+
+#This configures what the base URI for everything else
+#is, and is what the permissions will be looked for on
+permissionbase: sdb.bw2.io/demo
+meta:
+  room:
+    val: 410
+    ts: {{$mtime}}
+  floor:
+    val: 4
+    ts: {{$mtime}}
+plugs:
+  - #0
+    base: fan
+    meta:
+      device:
+        val: fan
+        ts: {{$mtime}}
+  - #1
+    base: heater
+    meta:
+      device:
+        val: heater
+        ts: {{$mtime}}
+  - #2
+    base: light
+    meta:
+      device:
+        val: light
+        ts: {{$mtime}}
+  - #3
+    base: 3
+  - #4
+    base: 4
+  - #5
+    base: 5
+  - #6
+    base: 6
+  - #7
+    base: 7
