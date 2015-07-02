@@ -196,7 +196,7 @@ func mergeMetadata() {
 				Timestamp int64
 				Extra     []string
 				Type      string
-			}{pl.CommonNames[0], time.Now().UnixNano(), pl.CommonNames[1:], "binary"})
+			}{pl.CommonNames[0], time.Now().UnixNano(), pl.CommonNames[1:], "binary,actuator"})
 			if err != nil {
 				fmt.Println("Could not create PO: ", err)
 			}
