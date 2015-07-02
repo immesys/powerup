@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"time"
 	"runtime"
-	"gopkg.in/yaml.v2"
-_ "github.com/kidoman/embd/host/rpi" // This loads the RPi driver
+	"time"
+
 	bw "github.com/immesys/bw2bind"
 	"github.com/kidoman/embd"
+	_ "github.com/kidoman/embd/host/rpi" // This loads the RPi driver
+	"gopkg.in/yaml.v2"
 )
 
 //7,0,1,2,3,4,5,6
@@ -34,8 +35,9 @@ func (mt *MetaTuple) NewerThan(t time.Time) bool {
 }
 
 type Plug struct {
-	Base string
-	Meta map[string]MetaTuple
+	Base        string
+	Meta        map[string]MetaTuple
+	CommonNames []string `yaml:"common_names"`
 }
 
 var config struct {
@@ -47,63 +49,63 @@ var config struct {
 func initHardware() {
 	err := embd.InitGPIO()
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
 	relays = make([]embd.DigitalPin, 8)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[0], err = embd.NewDigitalPin(4)//7)
+	relays[0], err = embd.NewDigitalPin(4) //7)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[1], err = embd.NewDigitalPin(17)//0)
+	relays[1], err = embd.NewDigitalPin(17) //0)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[2], err = embd.NewDigitalPin(18)//1)
+	relays[2], err = embd.NewDigitalPin(18) //1)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[3], err = embd.NewDigitalPin(27)//2)
+	relays[3], err = embd.NewDigitalPin(27) //2)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[4], err = embd.NewDigitalPin(22)//3)
+	relays[4], err = embd.NewDigitalPin(22) //3)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[5], err = embd.NewDigitalPin(23)//4)
+	relays[5], err = embd.NewDigitalPin(23) //4)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[6], err = embd.NewDigitalPin(24)//5)
+	relays[6], err = embd.NewDigitalPin(24) //5)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
-	relays[7], err = embd.NewDigitalPin(25)//6)
+	relays[7], err = embd.NewDigitalPin(25) //6)
 	if err != nil {
-		fmt.Println("GPIO ERR:",err)
+		fmt.Println("GPIO ERR:", err)
 		os.Exit(1)
 	}
 	for _, r := range relays {
 		err = r.SetDirection(embd.Out)
 		if err != nil {
-			fmt.Println("GPIO ERR:",err)
+			fmt.Println("GPIO ERR:", err)
 			os.Exit(1)
 		}
 		err = r.Write(embd.Low)
 		if err != nil {
-			fmt.Println("GPIO ERR:",err)
+			fmt.Println("GPIO ERR:", err)
 			os.Exit(1)
 		}
 	}
@@ -186,6 +188,29 @@ func mergeMetadata() {
 			tgt := config.PermissionBase + "/" + pl.Base + "/!meta/" + mkey
 			doTuple(tgt, mt)
 		}
+		//DO THIS CORRECTLY AFTER THE DEMO
+		if len(pl.CommonNames) > 0 {
+			tgt := config.PermissionBase + "/" + pl.Base + "/binary/ctl/state/!common_names"
+			po, err := bw.CreateMsgPackPayloadObject(bw.PONumSMetadata, &struct {
+				Value     string
+				Timestamp int64
+				Extra     []string
+				Type      string
+			}{pl.CommonNames[0], time.Now().UnixNano(), pl.CommonNames[1:], "binary"})
+			if err != nil {
+				fmt.Println("Could not create PO: ", err)
+			}
+			err = BWC.Publish(&bw.PublishParams{
+				URI:                tgt,
+				PrimaryAccessChain: PAC,
+				ElaboratePAC:       bw.ElaborateFull,
+				PayloadObjects:     []bw.PayloadObject{po},
+				Persist:            true,
+			})
+			if err != nil {
+				fmt.Println("Unable to update common names: ", err)
+			}
+		}
 	}
 }
 
@@ -217,7 +242,7 @@ func main() {
 	for idx := 0; idx < 7; idx++ {
 		i := idx
 		tgt := config.PermissionBase + "/" + config.Plugs[i].Base + "/binary/ctl/state"
-		
+
 		mc, err := BWC.Subscribe(&bw.SubscribeParams{
 			URI:                tgt,
 			PrimaryAccessChain: PAC,
