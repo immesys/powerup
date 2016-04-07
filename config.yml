@@ -1,9 +1,9 @@
 #Set a variable for the metadata validity time
-{{$mtime := "2015-06-20T00:00:00 PDT"}}
+{{$mtime := "2016-04-06T00:00:00 PDT"}}
 
 #This configures what the base URI for everything else
 #is, and is what the permissions will be looked for on
-permissionbase: sdb.bw2.io/demo
+svc_base_uri: 410.dev/plugctl/front
 meta:
   room:
     val: 410
@@ -13,20 +13,26 @@ meta:
     ts: {{$mtime}}
 plugs:
   - #0
-    base: fan
     meta:
+      common-names:
+        val: heater, heat
+        ts: {{$mtime}}
       device:
         val: fan
         ts: {{$mtime}}
   - #1
-    base: heater
     meta:
+      common-names:
+        val: fan, fans
+        ts: {{$mtime}}
       device:
         val: heater
         ts: {{$mtime}}
   - #2
-    base: light
     meta:
+      common-names:
+        val: light, lights, lamp
+        ts: {{$mtime}}
       device:
         val: light
         ts: {{$mtime}}

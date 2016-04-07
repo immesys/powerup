@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"time"
 
-	bw "github.com/immesys/bw2bind"
 	"github.com/kidoman/embd"
 	_ "github.com/kidoman/embd/host/rpi" // This loads the RPi driver
+	bw "gopkg.in/immesys/bw2bind.v2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -35,15 +35,13 @@ func (mt *MetaTuple) NewerThan(t time.Time) bool {
 }
 
 type Plug struct {
-	Base        string
-	Meta        map[string]MetaTuple
-	CommonNames []string `yaml:"common_names"`
+	Meta map[string]MetaTuple
 }
 
 var config struct {
-	Meta           map[string]MetaTuple
-	PermissionBase string
-	Plugs          []Plug
+	Meta    map[string]MetaTuple
+	URIBase string `yaml:"svc_base_uri"`
+	Plugs   []Plug
 }
 
 func initHardware() {
@@ -138,9 +136,9 @@ func mergeMetadata() {
 			return
 		}
 		ex_metadata, err := BWC.QueryOne(&bw.QueryParams{
-			URI:                tgt,
-			PrimaryAccessChain: PAC,
-			ElaboratePAC:       bw.ElaborateFull,
+			URI:          tgt,
+			ElaboratePAC: bw.ElaboratePartial,
+			AutoChain:    true,
 		})
 		if err != nil {
 			fmt.Println("Could not query metadata: ", err)
@@ -166,11 +164,11 @@ func mergeMetadata() {
 		}
 
 		err = BWC.Publish(&bw.PublishParams{
-			URI:                tgt,
-			PrimaryAccessChain: PAC,
-			ElaboratePAC:       bw.ElaborateFull,
-			PayloadObjects:     []bw.PayloadObject{po},
-			Persist:            true,
+			URI:            tgt,
+			ElaboratePAC:   bw.ElaboratePartial,
+			AutoChain:      true,
+			PayloadObjects: []bw.PayloadObject{po},
+			Persist:        true,
 		})
 		if err != nil {
 			fmt.Println("Unable to update metadata: ", err)
@@ -179,78 +177,58 @@ func mergeMetadata() {
 		}
 	}
 
-	for _, pl := range config.Plugs {
+	for idx, pl := range config.Plugs {
 		for mkey, mt := range pl.Meta {
-			tgt := config.PermissionBase + "/" + pl.Base + "/!meta/" + mkey
+			tgt := fmt.Sprintf("%s/s.powerup.v0/%d/!meta/%s", config.URIBase, idx, mkey)
 			doTuple(tgt, mt)
 		}
 		for mkey, mt := range config.Meta {
-			tgt := config.PermissionBase + "/" + pl.Base + "/!meta/" + mkey
+			tgt := fmt.Sprintf("%s/s.powerup.v0/%d/!meta/%s", config.URIBase, idx, mkey)
 			doTuple(tgt, mt)
 		}
-		//DO THIS CORRECTLY AFTER THE DEMO
-		if len(pl.CommonNames) > 0 {
-			tgt := config.PermissionBase + "/" + pl.Base + "/binary/ctl/state/!common_names"
-			po, err := bw.CreateMsgPackPayloadObject(bw.PONumSMetadata, &struct {
-				Value     string
-				Timestamp int64
-				Extra     []string
-				Type      string
-			}{pl.CommonNames[0], time.Now().UnixNano(), pl.CommonNames[1:], "binary,actuator"})
-			if err != nil {
-				fmt.Println("Could not create PO: ", err)
-			}
-			err = BWC.Publish(&bw.PublishParams{
-				URI:                tgt,
-				PrimaryAccessChain: PAC,
-				ElaboratePAC:       bw.ElaborateFull,
-				PayloadObjects:     []bw.PayloadObject{po},
-				Persist:            true,
-			})
-			if err != nil {
-				fmt.Println("Unable to update common names: ", err)
-			}
-		}
+		/*
+			if len(pl.CommonNames) > 0 {
+				tgt := config.PermissionBase + "/" + pl.Base + "/binary/ctl/state/!common_names"
+				po, err := bw.CreateMsgPackPayloadObject(bw.PONumSMetadata, &struct {
+					Value     string
+					Timestamp int64
+					Extra     []string
+					Type      string
+				}{pl.CommonNames[0], time.Now().UnixNano(), pl.CommonNames[1:], "binary,actuator"})
+				if err != nil {
+					fmt.Println("Could not create PO: ", err)
+				}
+				err = BWC.Publish(&bw.PublishParams{
+					URI:                tgt,
+					PrimaryAccessChain: PAC,
+					ElaboratePAC:       bw.ElaborateFull,
+					PayloadObjects:     []bw.PayloadObject{po},
+					Persist:            true,
+				})
+				if err != nil {
+					fmt.Println("Unable to update common names: ", err)
+				}
+			}*/
 	}
 }
 
 func main() {
 	initConfig()
-	var err error
-	BWC, err = bw.Connect("localhost:28589")
-	if err != nil {
-		fmt.Println("Could not connect to local router: ", err)
-		os.Exit(1)
-	}
-	us, err := BWC.SetEntityFile("entity.key")
-	if err != nil {
-		fmt.Println("Could not set entity key: ", err)
-		os.Exit(1)
-	}
+	BWC = bw.ConnectOrExit("")
+	us := BWC.SetEntityFileOrExit("entity.key")
 	fmt.Println("entity set: ", us)
-	uri := config.PermissionBase
 
-	//Build a chain
-	rc, err := BWC.BuildAnyChain(uri, "PC+", us)
-	if err != nil {
-		fmt.Println("Could not build permission chain: ", err)
-		os.Exit(1)
-	}
-	PAC = rc.Hash
 	mergeMetadata()
 	initHardware()
 	for idx := 0; idx < 7; idx++ {
 		i := idx
-		tgt := config.PermissionBase + "/" + config.Plugs[i].Base + "/binary/ctl/state"
-
-		mc, err := BWC.Subscribe(&bw.SubscribeParams{
-			URI:                tgt,
-			PrimaryAccessChain: PAC,
-			ElaboratePAC:       bw.ElaborateFull,
+		tgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binac/slot/state", config.URIBase, idx)
+		acttgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binac/signal/state", config.URIBase, idx)
+		mc := BWC.SubscribeOrExit(&bw.SubscribeParams{
+			URI:          tgt,
+			AutoChain:    true,
+			ElaboratePAC: bw.ElaborateFull,
 		})
-		if err != nil {
-			fmt.Println("Could not subscribe to ", tgt)
-		}
 		go func() {
 			for m := range mc {
 				fmt.Println("GOT MESSAGE on", tgt)
@@ -260,9 +238,23 @@ func main() {
 					if po.GetContents()[0] == 0 {
 						fmt.Println("Would turn off:", i)
 						relays[i].Write(0)
+						BWC.PublishOrExit(&bw.PublishParams{
+							URI:            acttgt,
+							ElaboratePAC:   bw.ElaboratePartial,
+							AutoChain:      true,
+							PayloadObjects: []bw.PayloadObject{po},
+							Persist:        true,
+						})
 					} else if po.GetContents()[0] == 1 {
 						fmt.Println("Would turn on:", i)
 						relays[i].Write(1)
+						BWC.PublishOrExit(&bw.PublishParams{
+							URI:            acttgt,
+							ElaboratePAC:   bw.ElaboratePartial,
+							AutoChain:      true,
+							PayloadObjects: []bw.PayloadObject{po},
+							Persist:        true,
+						})
 					}
 				}
 			}
