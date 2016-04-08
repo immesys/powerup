@@ -222,8 +222,8 @@ func main() {
 	initHardware()
 	for idx := 0; idx < 7; idx++ {
 		i := idx
-		tgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binac/slot/state", config.URIBase, idx)
-		acttgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binac/signal/state", config.URIBase, idx)
+		tgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binact/slot/state", config.URIBase, idx)
+		acttgt := fmt.Sprintf("%s/s.powerup.v0/%d/i.binact/signal/state", config.URIBase, idx)
 		mc := BWC.SubscribeOrExit(&bw.SubscribeParams{
 			URI:          tgt,
 			AutoChain:    true,
